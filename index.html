@@ -4,13 +4,56 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Video Background</title>
-  <link rel="stylesheet" href="style.css" />
+  <style>
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      background: #111; /* visible if video fails */
+      overflow: hidden;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: #fff;
+    }
+    /* Centered full-screen video */
+    #bg-video {
+      position: fixed;
+      top: 50%; left: 50%;
+      min-width: 100%; min-height: 100%;
+      width: auto; height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: 0; /* keep >= 0 so it’s not behind the page */
+      background: #000;
+    }
+    /* A tiny overlay message so you know page rendered */
+    #overlay {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      pointer-events: none;
+      background: linear-gradient(transparent, transparent);
+      z-index: 1;
+      font-size: 14px; opacity: .6;
+    }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
 
-  <video autoplay muted loop playsinline id="bg-video">
+  <!-- Add controls for debugging. Remove 'controls' once it works. -->
+  <video autoplay muted loop playsinline controls id="bg-video"
+         poster=""  <!-- optional: add a poster image url -->
+  >
+    <!-- REPLACE THIS with your Dropbox direct link (?raw=1) -->
     <source src="https://www.dropbox.com/s/abc123xyz/video.mp4?raw=1" type="video/mp4">
+    Your browser does not support the video tag.
   </video>
+
+  <div id="overlay">Loading video… if you can read this, the page is fine.</div>
+
+  <script>
+    const v = document.getElementById('bg-video');
+    const overlay = document.getElementById('overlay');
+    v.addEventListener('canplay', () => overlay.classList.add('hidden'));
+    v.addEventListener('error', () => overlay.textContent = '⚠️ Video failed to load. Check the URL and ?raw=1');
+  </script>
 
 </body>
 </html>
