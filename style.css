@@ -5,3 +5,27 @@ button { padding: 0.6rem 1rem; border: 1px solid #ccc; border-radius: 8px; curso
 button:hover { filter: brightness(1.05); }
 footer { margin-top: 3rem; color: #666; }
 
+#bg-video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: -1;
+  object-fit: cover;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: white;
+  padding-top: 30vh;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
