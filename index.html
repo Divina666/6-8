@@ -3,102 +3,49 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Background (pause at end, no loop)</title>
+  <title>Video Background (Dropbox)</title>
   <style>
-    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
-
-    /* Fullscreen container for the player */
-    .video-background {
-      position: fixed;
-      inset: 0;
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
       overflow: hidden;
-      z-index: 0;
-      pointer-events: none; /* prevent clicking the video */
       background: #000;
     }
 
-    /* Force the API-created iframe to fill and cover the screen */
-    .video-background iframe {
-      position: absolute !important;
-      top: 50% !important;
-      left: 50% !important;
-      transform: translate(-50%, -50%) !important;
-      width: 120vw !important;     /* oversize a bit to avoid edges */
-      height: 67.5vw !important;   /* 16:9 of 120vw */
-      min-width: 100% !important;
-      min-height: 100% !important;
-      border: 0 !important;
+    /* Fullscreen video */
+    #bg-video {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: -1;
+      background: #000;
     }
-
-    /* Optional: faint watermark so you know page rendered (remove later) */
-    .ping { position: fixed; bottom: 8px; right: 12px; color:#888; font:12px system-ui; }
   </style>
 </head>
 <body>
 
-  <div class="video-background" id="player-container"></div>
-  <div class="ping">bg ready</div>
+  <video id="bg-video" autoplay muted playsinline>
+    <source src="https://dl.dropboxusercontent.com/scl/fi/wag50hdbiloo1r1a3hrl0/LOGO.mp4?rlkey=4t9s997qsr4n6j403r4ftzh4c&st=mk1j83zi" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
 
   <script>
-    // Load the YouTube IFrame API
-    (function(){
-      var tag = document.createElement('script');
-      tag.src = "https://www.youtube.com/iframe_api";
-      var firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-    })();
+    const video = document.getElementById('bg-video');
 
-    var player, guardTimer;
-
-    // Called by the YT API when it’s ready
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player-container', {
-        videoId: 'ywhQD-pnP0U', // <-- your video ID
-        playerVars: {
-          autoplay: 1,
-          mute: 1,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-          fs: 0,
-          disablekb: 1,
-          // IMPORTANT: no loop
-        },
-        events: {
-          'onReady': onPlayerReady,
-          'onStateChange': onPlayerStateChange
-        }
-      });
-    }
-
-    function onPlayerReady() {
-      // Start playback (muted autoplay is allowed)
-      player.playVideo();
-
-      // Guard to pause just *before* the end so YouTube never fires ENDED (no end-cards)
-      // Checks current time ~10x/second and freezes at the last frame
-      guardTimer = setInterval(function() {
-        var d = player.getDuration();
-        var t = player.getCurrentTime();
-        if (d && t >= d - 0.25) {         // ~last 0.25 seconds
-          player.seekTo(d - 0.25, true);  // stay just before the end
-          player.pauseVideo();            // show the last frame
-        }
-      }, 100);
-    }
-
-    function onPlayerStateChange(e) {
-      // If it still reaches ENDED for any reason, seek back a hair and pause
-      if (e.data === YT.PlayerState.ENDED) {
-        var d = player.getDuration();
-        player.seekTo(Math.max(0, d - 0.25), true);
-        player.pauseVideo();
-      }
-    }
-
-    // Expose for the API (needed in global scope)
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+    // Pause on the last frame instead of looping
+    video.addEventListener('ended', function() {
+      // Seek back just a tiny bit to "freeze" the last frame
+      video.currentTime = video.duration - 0.1;
+      video.pause();
+    });
   </script>
+
 </body>
 </html>
