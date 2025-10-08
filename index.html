@@ -3,51 +3,40 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Background (no loop, pause at end)</title>
+  <title>YouTube Background (no loop, freeze at end)</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background: #000;
-    }
-    .video-background {
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
+    /* Fullscreen container */
+    #yt-bg {
       position: fixed;
       inset: 0;
       overflow: hidden;
-      pointer-events: none;
       background: #000;
-    }
-    .video-background iframe {
-      position: absolute !important;
-      top: 50% !important;
-      left: 50% !important;
-      transform: translate(-50%, -50%) !important;
-      width: 120vw !important;
-      height: 67.5vw !important;
-      min-width: 100% !important;
-      min-height: 100% !important;
-      border: 0 !important;
+      pointer-events: none; /* clicks pass through */
+      z-index: 0;
     }
   </style>
 </head>
 <body>
 
-  <div class="video-background" id="player"></div>
+  <div id="yt-bg"></div>
 
   <script>
-    // Load the YouTube IFrame API
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    // --- Load YT IFrame API ---
+    (function () {
+      var s = document.createElement('script');
+      s.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(s);
+    })();
 
     var player;
 
+    // Called by YT API
     function onYouTubeIframeAPIReady() {
-      player = new YT.Player('player', {
-        videoId: 'ywhQD-pnP0U',  // your video ID
+      player = new YT.Player('yt-bg', {
+        videoId: 'ywhQD-pnP0U', // <-- your video ID
+        width: 1920,            // initial; we'll override with CSS soon
+        height: 1080,
         playerVars: {
           autoplay: 1,
           mute: 1,
@@ -57,40 +46,76 @@
           playsinline: 1,
           fs: 0,
           disablekb: 1,
-          loop: 0,             // no looping
+          // no loop
+          iv_load_policy: 3,    // fewer annotations
+          enablejsapi: 1
         },
         events: {
-          'onReady': onPlayerReady,
-          'onStateChange': onPlayerStateChange
+          onReady: onReady,
+          onStateChange: onStateChange
         }
       });
     }
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
-    function onPlayerReady() {
-      player.playVideo();
-
-      // "Guard" to stop the video a hair before the end, to avoid YouTube end-screen
-      const guard = setInterval(() => {
-        const dur = player.getDuration();
-        const cur = player.getCurrentTime();
-        if (dur && cur >= dur - 0.25) {
-          player.seekTo(dur - 0.25, true);
-          player.pauseVideo();
-          clearInterval(guard);
-        }
-      }, 100);
+    function forceFullscreenStyles(iframe) {
+      // Force absolute full-bleed cover
+      iframe.style.position = 'absolute';
+      iframe.style.top = '50%';
+      iframe.style.left = '50%';
+      iframe.style.transform = 'translate(-50%, -50%)';
+      iframe.style.minWidth = '100%';
+      iframe.style.minHeight = '100%';
+      // Oversize a bit to avoid any black edges
+      iframe.style.width = '120vw';
+      iframe.style.height = '67.5vw'; // 16:9 of 120vw
+      iframe.style.border = '0';
     }
 
-    function onPlayerStateChange(event) {
-      if (event.data === YT.PlayerState.ENDED) {
-        const dur = player.getDuration();
-        player.seekTo(Math.max(0, dur - 0.25), true);
+    let guardTimer, reapplyTimer, observer;
+
+    function onReady() {
+      // Play immediately (muted autoplay is allowed)
+      try { player.playVideo(); } catch(_) {}
+
+      // Get the created iframe and force styles
+      const iframe = player.getIframe();
+      forceFullscreenStyles(iframe);
+
+      // Some browsers/YouTube tweak inline styles; re-apply briefly
+      reapplyTimer = setInterval(() => forceFullscreenStyles(iframe), 200);
+      // Stop reapplying after a second
+      setTimeout(() => clearInterval(reapplyTimer), 1200);
+
+      // MutationObserver as a safety net (if styles get changed later)
+      observer = new MutationObserver(() => forceFullscreenStyles(iframe));
+      observer.observe(iframe, { attributes: true, attributeFilter: ['style', 'width', 'height'] });
+
+      // Guard: freeze before end to avoid end-cards/ads
+      guardTimer = setInterval(() => {
+        const d = player.getDuration();
+        const t = player.getCurrentTime();
+        if (d && t >= d - 0.25) {
+          player.seekTo(d - 0.25, true);
+          player.pauseVideo();
+          clearInterval(guardTimer);
+        }
+      }, 120);
+    }
+
+    function onStateChange(e) {
+      // If YouTube still reaches ENDED, snap back to last frame and pause
+      if (e.data === YT.PlayerState.ENDED) {
+        const d = player.getDuration();
+        player.seekTo(Math.max(0, d - 0.25), true);
         player.pauseVideo();
       }
+      // When playing resumes (e.g., after buffering), ensure styles persist
+      if (e.data === YT.PlayerState.PLAYING) {
+        const iframe = player.getIframe();
+        forceFullscreenStyles(iframe);
+      }
     }
-
-    // Required for the API to work
-    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
   </script>
 
 </body>
