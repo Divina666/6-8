@@ -3,38 +3,57 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Background (no loop)</title>
+  <title>YouTube Background (pause at end, no loop)</title>
   <style>
     html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
+
+    /* Fullscreen container for the player */
     .video-background {
-      position: fixed; inset: 0;
+      position: fixed;
+      inset: 0;
       overflow: hidden;
-      pointer-events: none;
+      z-index: 0;
+      pointer-events: none; /* prevent clicking the video */
+      background: #000;
     }
+
+    /* Force the API-created iframe to fill and cover the screen */
     .video-background iframe {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 120vw; height: 67.5vw;   /* 16:9 */
-      min-width: 100%; min-height: 100%;
+      position: absolute !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 120vw !important;     /* oversize a bit to avoid edges */
+      height: 67.5vw !important;   /* 16:9 of 120vw */
+      min-width: 100% !important;
+      min-height: 100% !important;
+      border: 0 !important;
     }
+
+    /* Optional: faint watermark so you know page rendered (remove later) */
+    .ping { position: fixed; bottom: 8px; right: 12px; color:#888; font:12px system-ui; }
   </style>
 </head>
 <body>
 
   <div class="video-background" id="player-container"></div>
+  <div class="ping">bg ready</div>
 
   <script>
-    // Load YouTube API
-    var tag = document.createElement('script');
-    tag.src = "https://www.youtube.com/iframe_api";
-    var firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    // Load the YouTube IFrame API
+    (function(){
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    })();
 
-    var player;
+    var player, guardTimer;
+
+    // Called by the YT API when it’s ready
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player-container', {
-        videoId: 'ywhQD-pnP0U',  // your video ID
+        videoId: 'ywhQD-pnP0U', // <-- your video ID
         playerVars: {
           autoplay: 1,
           mute: 1,
@@ -42,24 +61,44 @@
           modestbranding: 1,
           rel: 0,
           playsinline: 1,
-          loop: 0
+          fs: 0,
+          disablekb: 1,
+          // IMPORTANT: no loop
         },
         events: {
+          'onReady': onPlayerReady,
           'onStateChange': onPlayerStateChange
         }
       });
     }
 
-    function onPlayerStateChange(event) {
-      // 0 = ended
-      if (event.data === YT.PlayerState.ENDED) {
-        // Seek to the last frame (e.g. 0.1 seconds before end) and pause
-        var duration = player.getDuration();
-        player.seekTo(duration - 0.1, true);
+    function onPlayerReady() {
+      // Start playback (muted autoplay is allowed)
+      player.playVideo();
+
+      // Guard to pause just *before* the end so YouTube never fires ENDED (no end-cards)
+      // Checks current time ~10x/second and freezes at the last frame
+      guardTimer = setInterval(function() {
+        var d = player.getDuration();
+        var t = player.getCurrentTime();
+        if (d && t >= d - 0.25) {         // ~last 0.25 seconds
+          player.seekTo(d - 0.25, true);  // stay just before the end
+          player.pauseVideo();            // show the last frame
+        }
+      }, 100);
+    }
+
+    function onPlayerStateChange(e) {
+      // If it still reaches ENDED for any reason, seek back a hair and pause
+      if (e.data === YT.PlayerState.ENDED) {
+        var d = player.getDuration();
+        player.seekTo(Math.max(0, d - 0.25), true);
         player.pauseVideo();
       }
     }
-  </script>
 
+    // Expose for the API (needed in global scope)
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+  </script>
 </body>
 </html>
