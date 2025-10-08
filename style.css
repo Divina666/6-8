@@ -1,19 +1,23 @@
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
+:root{
+  --menu-delay: 4s;       /* start time after page opens */
+  --link-duration: 0.9s;  /* each link fade speed */
+  --stagger: 0.25s;       /* gap between links */
 }
 
-#bg-video {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  min-width: 100%;
-  min-height: 100%;
-  width: auto;
-  height: auto;
-  transform: translate(-50%, -50%);
-  object-fit: cover;
-  z-index: -1;
+/* turn off any earlier menu animation */
+.menu{ animation: none; opacity: 1; }
+
+.menu a{
+  opacity: 0;
+  animation: linkFade var(--link-duration) ease-out forwards;
+}
+
+.menu a:nth-child(1){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 0); }
+.menu a:nth-child(2){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 1); }
+.menu a:nth-child(3){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 2); }
+.menu a:nth-child(4){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 3); }
+
+@keyframes linkFade {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
