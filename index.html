@@ -3,34 +3,63 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>YouTube Background</title>
+  <title>YouTube Background (no loop)</title>
   <style>
     html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
     .video-background {
       position: fixed; inset: 0;
-      /* z-index: 0;  <-- IMPORTANT: no negative z-index */
       overflow: hidden;
-      pointer-events: none; /* lets clicks pass through */
+      pointer-events: none;
     }
     .video-background iframe {
-      position: absolute; top:50%; left:50%;
+      position: absolute;
+      top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       width: 120vw; height: 67.5vw;   /* 16:9 */
       min-width: 100%; min-height: 100%;
     }
-    /* tiny watermark so you know it's rendering */
-    .ping { position: fixed; bottom: 8px; right: 12px; color:#999; font: 12px system-ui; }
   </style>
 </head>
 <body>
-  <div class="video-background">
-    <iframe
-      src="https://www.youtube.com/embed/ywhQD-pnP0U?autoplay=1&mute=1&playsinline=1&controls=0&loop=1&playlist=ywhQD-pnP0U&modestbranding=1&rel=0"
-      frameborder="0"
-      allow="autoplay; fullscreen; picture-in-picture"
-      allowfullscreen
-    ></iframe>
-  </div>
-  <div class="ping">video bg</div>
+
+  <div class="video-background" id="player-container"></div>
+
+  <script>
+    // Load YouTube API
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player-container', {
+        videoId: 'ywhQD-pnP0U',  // your video ID
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          loop: 0
+        },
+        events: {
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerStateChange(event) {
+      // 0 = ended
+      if (event.data === YT.PlayerState.ENDED) {
+        // Seek to the last frame (e.g. 0.1 seconds before end) and pause
+        var duration = player.getDuration();
+        player.seekTo(duration - 0.1, true);
+        player.pauseVideo();
+      }
+    }
+  </script>
+
 </body>
 </html>
