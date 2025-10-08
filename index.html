@@ -5,55 +5,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Site</title>
 
-  <!-- Geist font -->
+  <!-- Geist font (fallbacks included) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
 
   <style>
-    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
+    :root{
+      --menu-delay: 0.01s;       /* start AFTER video is ready/playing */
+      --link-duration: 0.9s;  /* fade speed for each item */
+      --stagger: 0.25s;       /* gap between items */
+      --menu-padding-x: 6vw;
+      --menu-top: 20px;
+      --menu-font-size: 20px; /* requested size */
+    }
+
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#fff; }
     body { font-family: "Geist", system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
 
-    /* Fullscreen video container */
+    /* Background video container */
     #yt-bg {
-      position: fixed;
-      inset: 0;
-      overflow: hidden;
-      background: #000;
-      pointer-events: none; /* allow clicks on nav */
-      z-index: 0;
+      position: fixed; inset: 0; overflow: hidden;
+      background:#fff; pointer-events:none; z-index:0;
     }
+
+    /* Cover to hide YouTube spinner until PLAYING */
+    #preload-cover{
+      position: fixed; inset: 0; background:#fff; z-index:1;
+      pointer-events:none; opacity:1; transition: opacity .4s ease;
+    }
+    #preload-cover.hide{ opacity:0; }
 
     /* Top justified menu */
     .menu {
-      position: fixed;
-      top: 20px;
-      left: 0;
-      right: 0;
-      padding: 0 6vw;
-      display: flex;
-      justify-content: space-between;   /* spreads items to edges */
-      align-items: center;
+      position: fixed; top: var(--menu-top); left: 0; right: 0;
+      padding: 0 var(--menu-padding-x);
+      display: flex; justify-content: space-between; align-items: center;
       z-index: 10;
-      opacity: 0;
-      animation: fadeIn 1.2s ease-out forwards;
-      gap: 2rem;
     }
-    .menu a {
-      text-decoration: none;
-      color: #000000;
-      text-transform: uppercase;
-      font-size: 20px;       /* requested size */
-      font-weight: 500;
-      letter-spacing: 0.08em;
-      transition: opacity .25s ease, transform .25s ease, color .25s ease;
-      opacity: .9;
-    }
-    .menu a:hover { opacity: 1; color: #eaeaea; transform: translateY(-1px); }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
+    /* White→transparent strip so black text stays readable */
+    .menu::before{
+      content:""; position:absolute; left:0; right:0; top: calc(var(--menu-top) * -1);
+      height: calc(56px + var(--menu-top));
+      background: linear-gradient(to bottom, rgba(255,255,255,.85), rgba(255,255,255,0));
+      pointer-events:none; z-index:-1;
+    }
+
+    /* Links: BLACK, initially opacity 0 (no visibility:hidden) */
+    .menu a{
+      text-decoration:none; text-transform:uppercase;
+      font-size: var(--menu-font-size); font-weight:500; letter-spacing:.08em;
+      color:#000; opacity:0;
+      transition: transform .25s ease, color .25s ease;
+    }
+    .menu a:hover{ color:#111; transform: translateY(-1px); }
+
+    /* Staggered reveal AFTER body gets .show-menu */
+    .show-menu .menu a{ animation: linkFade var(--link-duration) ease-out forwards; }
+    .show-menu .menu a:nth-child(1){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 0); }
+    .show-menu .menu a:nth-child(2){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 1); }
+    .show-menu .menu a:nth-child(3){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 2); }
+    .show-menu .menu a:nth-child(4){ animation-delay: calc(var(--menu-delay) + var(--stagger) * 3); }
+
+    @keyframes linkFade{
+      from { opacity:0; transform: translateY(-6px); }
+      to   { opacity:1; transform: translateY(0); }
     }
   </style>
 </head>
@@ -62,40 +79,35 @@
   <!-- Background video -->
   <div id="yt-bg"></div>
 
+  <!-- Spinner-hiding cover -->
+  <div id="preload-cover" aria-hidden="true"></div>
+
   <!-- Top navigation -->
   <nav class="menu">
-    <a href="releases.html">Releases</a>
-    <a href="shop.html">Shop</a>
-    <a href="info.html">Info</a>
-    <a href="subscribe.html">Subscribe</a>
+    <a href="releases.html">RELEASES</a>
+    <a href="shop.html">SHOP</a>
+    <a href="info.html">INFO</a>
+    <a href="subscribe.html">SUBSCRIBE</a>
   </nav>
 
-  <!-- YouTube background player (no loop, pause ~0.5s before end) -->
+  <!-- YouTube background + menu triggers -->
   <script>
+    // Load YT IFrame API
     (function () {
       var s = document.createElement('script');
       s.src = "https://www.youtube.com/iframe_api";
       document.head.appendChild(s);
     })();
 
-    var player, reapplyTimer, observer, guardTimer;
+    var player, guardTimer, menuShown = false;
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('yt-bg', {
-        videoId: 'ywhQD-pnP0U',  // <-- your video ID
-        width: 1920,
-        height: 1080,
+        videoId: 'ywhQD-pnP0U',    // <-- your video ID
+        width: 1920, height: 1080,
         playerVars: {
-          autoplay: 1,
-          mute: 1,
-          controls: 0,
-          modestbranding: 1,
-          rel: 0,
-          playsinline: 1,
-          fs: 0,
-          disablekb: 1,
-          iv_load_policy: 3,
-          enablejsapi: 1
+          autoplay: 1, mute: 1, controls: 0, modestbranding: 1, rel: 0,
+          playsinline: 1, fs: 0, disablekb: 1, iv_load_policy: 3, enablejsapi: 1
         },
         events: { onReady, onStateChange }
       });
@@ -103,36 +115,47 @@
     window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
 
     function forceFullscreenStyles(iframe) {
+      if (!iframe) return;
       iframe.style.position = 'absolute';
       iframe.style.top = '50%';
       iframe.style.left = '50%';
       iframe.style.transform = 'translate(-50%, -50%)';
       iframe.style.minWidth = '100%';
       iframe.style.minHeight = '100%';
-      iframe.style.width = '120vw';     /* oversize slightly to avoid edges */
-      iframe.style.height = '67.5vw';   /* 16:9 of 120vw */
+      iframe.style.width = '120vw';     // oversize slightly to avoid edges
+      iframe.style.height = '67.5vw';   // 16:9 of 120vw
       iframe.style.border = '0';
+    }
+
+    function hideCover() {
+      var c = document.getElementById('preload-cover');
+      if (!c) return;
+      c.classList.add('hide');
+      setTimeout(function(){ c.remove(); }, 450);
+    }
+
+    function showMenuOnce() {
+      if (menuShown) return;
+      menuShown = true;
+      document.body.classList.add('show-menu');
     }
 
     function onReady() {
       try { player.playVideo(); } catch(_) {}
 
-      const iframe = player.getIframe();
+      var iframe = player.getIframe();
       forceFullscreenStyles(iframe);
+      var reapply = setInterval(function(){ forceFullscreenStyles(iframe); }, 200);
+      setTimeout(function(){ clearInterval(reapply); }, 1200);
 
-      // Re-apply briefly in case styles get overridden by the embed
-      reapplyTimer = setInterval(() => forceFullscreenStyles(iframe), 200);
-      setTimeout(() => clearInterval(reapplyTimer), 1200);
+      // Primary trigger: 4s after READY
+      setTimeout(showMenuOnce, 4000);
 
-      // Keep watching for style changes
-      observer = new MutationObserver(() => forceFullscreenStyles(iframe));
-      observer.observe(iframe, { attributes: true, attributeFilter: ['style','width','height'] });
-
-      // Pause ~0.5s before the end (no seek → avoids spinner)
-      const stopAhead = 0.5;
-      guardTimer = setInterval(() => {
-        const d = player.getDuration();
-        const t = player.getCurrentTime();
+      // Pause ~0.5s before the end (no seek ⇒ no spinner)
+      var stopAhead = 0.5;
+      guardTimer = setInterval(function(){
+        var d = player.getDuration();
+        var t = player.getCurrentTime();
         if (d && t >= d - stopAhead) {
           player.pauseVideo();
           clearInterval(guardTimer);
@@ -142,12 +165,20 @@
 
     function onStateChange(e) {
       if (e.data === YT.PlayerState.PLAYING) {
+        hideCover();
         forceFullscreenStyles(player.getIframe());
+        // Secondary trigger: also start menu timer from PLAYING
+        setTimeout(showMenuOnce, 4000);
       }
       if (e.data === YT.PlayerState.ENDED) {
         try { player.pauseVideo(); } catch(_) {}
       }
     }
+
+    // Last-resort fallback: show menu 8s after page load
+    window.addEventListener('load', function(){
+      setTimeout(showMenuOnce, 8000);
+    });
   </script>
 
 </body>
