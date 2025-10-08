@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Video Background (Dropbox)</title>
+  <title>YouTube Background (no loop, pause at end)</title>
   <style>
     html, body {
       margin: 0;
@@ -12,39 +12,85 @@
       overflow: hidden;
       background: #000;
     }
-
-    /* Fullscreen video */
-    #bg-video {
+    .video-background {
       position: fixed;
-      top: 50%;
-      left: 50%;
-      min-width: 100%;
-      min-height: 100%;
-      width: auto;
-      height: auto;
-      transform: translate(-50%, -50%);
-      object-fit: cover;
-      z-index: -1;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
       background: #000;
+    }
+    .video-background iframe {
+      position: absolute !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 120vw !important;
+      height: 67.5vw !important;
+      min-width: 100% !important;
+      min-height: 100% !important;
+      border: 0 !important;
     }
   </style>
 </head>
 <body>
 
-  <video id="bg-video" autoplay muted playsinline>
-    <source src="https://dl.dropboxusercontent.com/scl/fi/wag50hdbiloo1r1a3hrl0/LOGO.mp4?rlkey=4t9s997qsr4n6j403r4ftzh4c&st=mk1j83zi" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+  <div class="video-background" id="player"></div>
 
   <script>
-    const video = document.getElementById('bg-video');
+    // Load the YouTube IFrame API
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
-    // Pause on the last frame instead of looping
-    video.addEventListener('ended', function() {
-      // Seek back just a tiny bit to "freeze" the last frame
-      video.currentTime = video.duration - 0.1;
-      video.pause();
-    });
+    var player;
+
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: 'ywhQD-pnP0U',  // your video ID
+        playerVars: {
+          autoplay: 1,
+          mute: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          playsinline: 1,
+          fs: 0,
+          disablekb: 1,
+          loop: 0,             // no looping
+        },
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange
+        }
+      });
+    }
+
+    function onPlayerReady() {
+      player.playVideo();
+
+      // "Guard" to stop the video a hair before the end, to avoid YouTube end-screen
+      const guard = setInterval(() => {
+        const dur = player.getDuration();
+        const cur = player.getCurrentTime();
+        if (dur && cur >= dur - 0.25) {
+          player.seekTo(dur - 0.25, true);
+          player.pauseVideo();
+          clearInterval(guard);
+        }
+      }, 100);
+    }
+
+    function onPlayerStateChange(event) {
+      if (event.data === YT.PlayerState.ENDED) {
+        const dur = player.getDuration();
+        player.seekTo(Math.max(0, dur - 0.25), true);
+        player.pauseVideo();
+      }
+    }
+
+    // Required for the API to work
+    window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
   </script>
 
 </body>
